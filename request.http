@@ -1,0 +1,13 @@
+### 1. 로그인 성공
+POST http://localhost:8000/auth/login
+Content-Type: application/json
+
+{
+  "id": "test@example.com",
+  "password": "securePassword123!"
+}
+
+### 2. accesstoken 확인
+GET localhost:8000/api/members/info
+Content-Type: application/json
+Authorization: eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6NzA3OTk4NjkwMTI0OTMyMDk1LCJlbWFpbCI6InRlc3RAZXhhbXBsZS5jb20iLCJyb2xlcyI6WyJST0xFX1VTRVIiXSwic3ViIjoidGVzdEBleGFtcGxlLmNvbSIsImlhdCI6MTc0NjcxMDUyNiwiZXhwIjoxNzQ2NzEwNTMwfQ.WXgJ9n5UzS647XphUWAGsiXXlrwhycSJdgn2DhXinb4
