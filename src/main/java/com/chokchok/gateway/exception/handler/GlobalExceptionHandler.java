@@ -42,6 +42,7 @@ public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
 
         // UnauthorizedException 에러 처리
         if(ex instanceof UnauthorizedException unauthorizedException) {
+            log.error(ex.getMessage());
             response.setStatusCode(HttpStatus.UNAUTHORIZED);
 
             errorResponseDto = ErrorResponseDto.of(
@@ -52,6 +53,7 @@ public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
 
             // InvalidException 에러 처리
         } else if(ex instanceof InvalidException invalidException) {
+            log.error(ex.getMessage());
             response.setStatusCode(HttpStatus.BAD_REQUEST);
 
             errorResponseDto = ErrorResponseDto.of(
@@ -62,6 +64,7 @@ public class GlobalExceptionHandler implements ErrorWebExceptionHandler {
 
             // 그 외 에러 처리
         } else {
+            log.error(ex.getMessage());
             response.setStatusCode(HttpStatus.INTERNAL_SERVER_ERROR);
 
             errorResponseDto = ErrorResponseDto.of(
