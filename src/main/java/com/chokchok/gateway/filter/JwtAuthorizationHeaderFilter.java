@@ -1,16 +1,17 @@
 package com.chokchok.gateway.filter;
 
-import com.chokchok.gateway.client.AuthClient;
 import com.chokchok.gateway.exception.code.ErrorCode;
 import com.chokchok.gateway.exception.base.UnauthorizedException;
 import com.chokchok.gateway.util.JwtUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 
 import java.util.List;
 
@@ -22,15 +23,14 @@ import java.util.List;
 public class JwtAuthorizationHeaderFilter extends AbstractGatewayFilterFactory<JwtAuthorizationHeaderFilter.Config> {
 
     private final JwtUtils jwtUtils;
-
-    private final AuthClient authClient;
+    private final WebClient.Builder webClient;
 
     public static class Config {}
 
-    public JwtAuthorizationHeaderFilter(JwtUtils jwtUtils, @Lazy AuthClient authClient) {
+    public JwtAuthorizationHeaderFilter(JwtUtils jwtUtils, WebClient.Builder webClient) {
         super(Config.class);
         this.jwtUtils = jwtUtils;
-        this.authClient = authClient;
+        this.webClient = webClient;
     }
 
     /**
@@ -38,9 +38,10 @@ public class JwtAuthorizationHeaderFilter extends AbstractGatewayFilterFactory<J
      */
     private static final List<String> WHITELIST = List.of(
             // Auth
-            "/auth/login"
+            "/auth/login",
 
             // API
+            "/api/members"
     );
 
     /**
@@ -51,11 +52,9 @@ public class JwtAuthorizationHeaderFilter extends AbstractGatewayFilterFactory<J
     @Override
     public GatewayFilter apply(Config config) {
         return  (exchange, chain)->{
-
             ServerHttpRequest request = exchange.getRequest();
-            String accessToken = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 
-            // 화이트 리스트에 포함된 경로면 필터 통과
+            // 화이트 리스트에 포함된 경로는 필터 통과
             if (WHITELIST.contains(request.getURI().getPath())) {
                 return chain.filter(exchange);
             }
@@ -63,27 +62,39 @@ public class JwtAuthorizationHeaderFilter extends AbstractGatewayFilterFactory<J
             // header 검증
             if(!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
                 throw new UnauthorizedException(ErrorCode.MISSING_AUTHORIZATION_HEADER, "Authorization 헤더가 없습니다.");
-            }else{
-                // accessToken 검증, 블랙리스트 체크
-                if(!jwtUtils.isValidToken(accessToken) || authClient.isTokenBlacklisted(accessToken)) {
+            }else {
+                // accessToken 검증
+                String accessToken = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION).substring(7);
+                if (!jwtUtils.isValidToken(accessToken)) {
                     throw new UnauthorizedException(ErrorCode.UNAUTHORIZED_ACCESS_TOKEN, "유효하지 않은 accessToken 입니다.");
                 }
 
-                // Request 헤더에 X-MEMBER-ID 등록
-                String memberId = jwtUtils.extractMemberId(accessToken);
-                exchange.mutate().request(builder -> {
-                    builder.header("X-MEMBER-ID",memberId);
-                });
+                // 블랙리스트 확인
+                return webClient.build()
+                        .get()
+                        .uri("lb://AUTH-API/auth/blacklist/{accessToken}", accessToken)
+                        .retrieve()
+                        .bodyToMono(Boolean.class)
+                        .flatMap(isBlacklisted -> {
+                            if (isBlacklisted) {
+                                return Mono.error(new UnauthorizedException(ErrorCode.UNAUTHORIZED_ACCESS_TOKEN, "블랙리스트에 등록된 사용자입니다."));
+                            }
 
-                // Request 헤더에 X-MEMBER-ROLE 등록
-                List<String> memberRoles = jwtUtils.extractRoles(accessToken);
-                exchange.mutate().request(builder -> {
-                    builder.header("X-MEMBER-ROLES", String.join(",", memberRoles));
-                });
+                            // Request 헤더에 X-MEMBER-ID, X-MEMBER-ROLE 등록
+                            String memberId = jwtUtils.extractMemberId(accessToken);
+                            List<String> memberRoles = jwtUtils.extractRoles(accessToken);
+
+                            ServerWebExchange mutedExchange = exchange.mutate()
+                                    .request(builder -> builder
+                                            .header("X-MEMBER-ID", memberId)
+                                            .header("X-MEMBER-ROLES", String.join(",", memberRoles)))
+                                    .build();
+
+                            log.info("Request Headers: {}", mutedExchange.getRequest().getHeaders());
+
+                            return chain.filter(mutedExchange);
+                        });
             }
-
-            return chain.filter(exchange);
         };
     }
-
 }
