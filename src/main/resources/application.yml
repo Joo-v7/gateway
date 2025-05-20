@@ -42,10 +42,6 @@ server:
       charset: UTF-8
       force: true
 
-# JWT
-jwt:
-  secret: ${JWT_SECRETS}
-
 # Eureka Client
 eureka:
   client:
@@ -53,3 +49,10 @@ eureka:
     fetch-registry: true
     service-url:
       defaultZone: http://admin:1234@localhost:8761/eureka/
+
+# JWT
+jwt:
+  secret: ${JWT_SECRETS}
+  whitelist:
+    - /auth/login
+    - /api/members

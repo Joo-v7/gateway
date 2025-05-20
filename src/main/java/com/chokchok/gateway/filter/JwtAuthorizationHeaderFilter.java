@@ -4,6 +4,7 @@ import com.chokchok.gateway.exception.code.ErrorCode;
 import com.chokchok.gateway.exception.base.UnauthorizedException;
 import com.chokchok.gateway.util.JwtUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
@@ -36,13 +37,8 @@ public class JwtAuthorizationHeaderFilter extends AbstractGatewayFilterFactory<J
     /**
      * 필터를 거치지 않는 경로 리스트(로그인이 필요없는 경로 리스트)
      */
-    private static final List<String> WHITELIST = List.of(
-            // Auth
-            "/auth/login",
-
-            // API
-            "/api/members"
-    );
+    @Value("${jwt.whitelist}")
+    private List<String> whitelist;
 
     /**
      * JWT 검증 필터
@@ -55,7 +51,8 @@ public class JwtAuthorizationHeaderFilter extends AbstractGatewayFilterFactory<J
             ServerHttpRequest request = exchange.getRequest();
 
             // 화이트 리스트에 포함된 경로는 필터 통과
-            if (WHITELIST.contains(request.getURI().getPath())) {
+            log.info(request.getMethod() + " " + request.getURI());
+            if (whitelist.contains(request.getURI().getPath())) {
                 return chain.filter(exchange);
             }
 
