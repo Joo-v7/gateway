@@ -43,7 +43,7 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         port: ${{ secrets.SSH_PORT }}
         source: "target/*.jar"
-        target: "~/prod/target/"
+        target: "/home/chokchok/prod/"
         rm: false
 
     # 서버의 배포 스크립트 실행
