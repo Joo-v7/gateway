@@ -5,8 +5,8 @@ import com.chokchok.gateway.exception.code.ErrorCode;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -17,11 +17,11 @@ import java.util.List;
  * JWT 검증, 파싱을 위한 클래스
  */
 @Slf4j
+@RequiredArgsConstructor
 @Component
 public class JwtUtils {
 
-    @Value("${jwt.secret}")
-    private String JWT_SECRET_KEY;
+    private final JwtProperties jwtProperties;
 
     /**
      * JWT를 파싱하기 위해 HMAC-SHA256 알고리즘으로 키를 생성
@@ -29,7 +29,7 @@ public class JwtUtils {
      * @return SecretKey - 대칭키 방식이므로 secretkey 반환
      */
     private SecretKey getSecretKey() {
-        byte[] keyBytes = JWT_SECRET_KEY.getBytes(StandardCharsets.UTF_8);
+        byte[] keyBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
